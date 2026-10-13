@@ -9,6 +9,8 @@ Plataforma de segurança com Python AST/taint intraprocedural e parsing estrutur
 - Mateus dos Santos da Silva — 558436
 - Nickolas Moreno Cardoso — 557132
 - André Giovane de Maria — 556384
+- Mohamed Afif Smaili - 554445
+- Lucca Ribeiro Cardinale - 556668
 
 ## Iniciar com Docker
 
