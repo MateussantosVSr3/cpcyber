@@ -10,6 +10,8 @@ A [execução vulnerável](https://github.com/MateussantosVSr3/cpcyber/actions/r
 
 O exemplo vulnerável foi removido na revisão seguinte. As execuções e respectivos commits permanecem no histórico do PR. A alteração final inclui a documentação desta evidência e melhorias no ciclo de inicialização/limpeza do CI.
 
+A [execução da base corrigida](https://github.com/MateussantosVSr3/cpcyber/actions/runs/38465752860) concluiu com sucesso todos os testes, gates, build e smoke de PostgreSQL/Redis/Celery. O PR de validação só pode ser integrado depois de seu próprio check verde.
+
 ## Proteção da branch principal
 
 - Pull request obrigatório para alterar `main`, inclusive para administradores.

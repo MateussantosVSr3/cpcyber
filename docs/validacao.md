@@ -44,3 +44,6 @@ Use `docker compose logs api worker codex` para diagnóstico. Não publique logs
 - Teste de fila com um worker: 12/12 análises corretas, quatro clientes concorrentes, p95 de 0,694 s.
 - Replicação: dois workers responderam; 12/12 análises corretas, quatro clientes concorrentes, p95 de 0,790 s. A instalação voltou a um worker para poupar RAM. Estes números não demonstram capacidade máxima nem alta disponibilidade.
 - O smoke agora aguarda a prontidão real do Celery antes de testar a fila. A primeira execução de CI identificou essa corrida de inicialização, que foi corrigida.
+- Aceitação externa autenticada: projeto com oito linguagens vulneráveis retornou BLOCKED (oito achados); projeto seguro nas oito linguagens retornou PASSED; JavaScript inválido retornou ERROR. Os resultados identificaram Python AST e as sete gramáticas Tree-sitter.
+- Downloads PDF dos três resultados retornaram documentos válidos; CSS, JavaScript e favicon carregaram sob sessão. Logout voltou a bloquear a API com 401.
+- CI da base corrigida aprovado: https://github.com/MateussantosVSr3/cpcyber/actions/runs/38465752860. Evidência de PR vulnerável e proteção da branch em `pipeline.md`.
