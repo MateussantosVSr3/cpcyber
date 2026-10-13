@@ -14,7 +14,7 @@ EXCLUDED = {".git", ".venv", "venv", "node_modules", "__pycache__"}
 def sarif(result):
     rules = {f["rule"]: f for f in result["findings"]}
     return {"version": "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json", "runs": [{
-        "tool": {"driver": {"name": "Sentinela SAST", "version": "0.1.0", "rules": [
+        "tool": {"driver": {"name": "NULL//SENTRY", "version": "0.2.0", "rules": [
             {"id": r, "shortDescription": {"text": f["title"]}, "properties": {"tags": ["security", f["cwe"]]}} for r, f in rules.items()]}},
         "invocations": [{"executionSuccessful": not result["errors"]}],
         "results": [{"ruleId": f["rule"], "level": "error" if f["severity"] in {"HIGH", "CRITICAL"} else "warning",

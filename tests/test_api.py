@@ -12,7 +12,7 @@ from sast.api import app, Submission, submit, detail, metrics, review
 from sast.jobs import process
 
 
-async def request(method, route, data=None, headers=None):
+async def request(method, route, data=None, headers=None, include_headers=False):
     """Minimal ASGI client; no extra HTTP dependency required."""
     body = json.dumps(data).encode() if data is not None else b""
     sent = False
@@ -31,7 +31,9 @@ async def request(method, route, data=None, headers=None):
         "headers": [(b"host", b"testserver"), (b"content-type", b"application/json"), *((k.encode(), v.encode()) for k,v in (headers or {}).items())],
         "client": ("127.0.0.1", 12345), "server": ("testserver", 80)}
     await app(scope, receive, send)
-    return next(e["status"] for e in events if e["type"] == "http.response.start"), b"".join(e.get("body", b"") for e in events)
+    start = next(e for e in events if e['type'] == 'http.response.start')
+    result = (start['status'], b''.join(e.get('body', b'') for e in events))
+    return (*result, dict(start['headers'])) if include_headers else result
 
 
 class ApiTests(unittest.TestCase):
@@ -39,9 +41,12 @@ class ApiTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {"DATABASE_URL": "sqlite:///" + str(Path(self.tmp.name) / "test.db")})
         self.env.start()
+        self.auth = patch('sast.auth.user_for_session', return_value='test-operator')
+        self.auth.start()
         storage.init()
 
     def tearDown(self):
+        self.auth.stop()
         self.env.stop()
         self.tmp.cleanup()
 
@@ -73,7 +78,7 @@ class ApiTests(unittest.TestCase):
         process(scan_id)
         item = detail(scan_id)
         self.assertEqual(item["result"]["gate"], "BLOCKED")
-        self.assertEqual({f["engine"] for f in item["result"]["findings"]}, {"multilang-pattern"})
+        self.assertEqual({f["engine"] for f in item["result"]["findings"]}, {"tree-sitter:javascript"})
 
     @patch("sast.jobs.scan_site", return_value={"gate": "PASSED", "findings": [], "errors": [], "files_scanned": 1, "scan_type": "website"})
     @patch("sast.api.validate_public_url", create=True)

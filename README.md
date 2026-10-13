@@ -2,7 +2,7 @@
 
 Projeto Integrador FIAP. Linguagens suportadas: **Python, JavaScript, TypeScript, Java, PHP, Go, C# e Ruby**. IA escolhida: **Codex, com login oficial da conta ChatGPT no navegador**.
 
-Plataforma de segurança com motor AST/taint profundo para Python, camada SAST multilanguage para sete famílias adicionais, inspeção passiva de sites públicos, FastAPI, dashboard, histórico, relatórios JSON/SARIF e Security Gates. Em Docker: PostgreSQL, Redis, Celery e serviço independente de integração Codex. Não é um scanner comercial nem uma garantia de ausência de falhas.
+Plataforma de segurança com Python AST/taint intraprocedural e parsing estrutural Tree-sitter para JavaScript/JSX, TypeScript/TSX, Java, PHP, Go, C# e Ruby. Inclui inspeção passiva de sites, FastAPI, dashboard, histórico, relatórios JSON/SARIF/PDF e Security Gates. Em Docker: PostgreSQL, Redis, Celery e serviço independente de integração Codex. Não é um scanner comercial nem uma garantia de ausência de falhas.
 
 ## Equipe
 
@@ -16,10 +16,13 @@ Requisitos: Docker Desktop com Linux containers/Compose, acesso à internet para
 
 ~~~powershell
 python scripts/init_env.py
+python -m scripts.configure_login --username SEU_USUARIO
 docker compose up --build -d
 ~~~
 
-Abra **http://localhost:8000**. Aguarde a construção dos containers. O código enviado é analisado como texto; nunca execute os exemplos vulneráveis.
+O Compose é configurado para a VPS em **https://3.149.250.106**, com proxy nas portas 80/443. Siga `deploy/install-production.sh` para o TLS de produção. Para desenvolvimento local, use as instruções sem Docker abaixo. O código enviado é analisado como texto; nunca execute os exemplos vulneráveis.
+
+O acesso exige usuário e senha. A configuração fica somente no `.env`, com hash scrypt e salt aleatório. Sessões de oito horas usam cookie HttpOnly/Secure em HTTPS e são revogadas no logout. A API e os relatórios também exigem autenticação; `/health` é público. A implantação usa um operador, sem cadastro público. A senha de produção não é incluída neste repositório. Para alterá-la, execute `python -m scripts.configure_login --username SEU_USUARIO` e recrie API/worker; a troca invalida sessões anteriores. O proxy limita tentativas de login.
 
 1. Clique em **Carregar exemplo vulnerável** e **Executar análise estática**.
 2. O resultado esperado são quatro achados: credencial, SQL injection, shell e execução dinâmica; Gate BLOCKED.
@@ -38,14 +41,14 @@ O modelo é o padrão disponibilizado pelo Codex para a conta; nenhum nome de mo
 ~~~powershell
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python -m uvicorn sast.api:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python -m scripts.run_local
 ~~~
 
 Sem DATABASE_URL e REDIS_URL, usa SQLite local e processamento em background do FastAPI. Esse modo permite demonstrar o motor e a interface, mas **não demonstra Celery/PostgreSQL**. Para login e revisão, prefira o serviço Codex no Compose; sem a ponte, a interface informa integração indisponível.
 
 ## CLI e Security Gates
 
-O CLI e os testes do motor usam apenas a biblioteca padrão de Python.
+Use Python 3.12 e instale `requirements.txt`. Tree-sitter e as gramáticas são distribuídos no pacote; a análise não precisa baixar parsers em tempo de execução. O módulo Python AST isolado usa a biblioteca padrão; o CLI multilíngue precisa das dependências.
 
 ~~~powershell
 python -m sast.cli examples/vulnerable.py --output reports/vulnerable.json
@@ -53,6 +56,8 @@ python -m sast.cli examples/safe.py --format sarif --output reports/safe.sarif
 python -m sast.cli sast --output reports/self-scan.json
 python -m unittest discover -s tests -v
 node --test codex-bridge/rpc.test.mjs
+python -m scripts.benchmark
+python -m scripts.verify_gates
 ~~~
 
 Saídas do CLI: 0 = PASSED, 1 = BLOCKED, 2 = ERROR. HIGH/CRITICAL bloqueiam por padrão. Erros de parsing ou ausência de arquivos também impedem sucesso. --threshold altera o limiar. Erros de análise não são tratados como código seguro.
@@ -68,7 +73,9 @@ O workflow .github/workflows/security.yml executa testes, AST, Bandit, build Doc
 | sast/jobs.py | Worker Celery e alternativa local |
 | sast/storage.py | Repositório SQLite/PostgreSQL |
 | sast/cli.py | Gate de CI e relatórios JSON/SARIF |
-| sast/scanner.py / multilang.py | Orquestração e regras multilanguage |
+| sast/scanner.py / multilang.py | Orquestração, Tree-sitter e regras estruturais multilíngues |
+| sast/auth.py | Hash scrypt, sessões revogáveis e autenticação |
+| sast/metrics.py | Tendência comparável por projeto/tipo e arquivos críticos |
 | sast/site_scanner.py | Inspeção passiva de páginas públicas com proteção SSRF |
 | sast/pdf_report.py | Relatório executivo PDF com resumo Codex |
 | codex-bridge/ | App Server via JSON-RPC, login e revisão estruturada |
@@ -102,7 +109,9 @@ As dependências diretas Python estão fixadas; transitivas e imagens ainda pode
 
 O enunciado recomenda LLM local (Ollama/Llama 3). Esta implementação usa Codex **conforme a escolha do projeto**, com inferência externa e dependência de conta/internet. Registrar essa alteração na defesa e confirmar sua aceitação com o professor é uma pendência acadêmica. Ollama não está implementado.
 
-Python usa AST e taint analysis intraprocedural. JavaScript, TypeScript, Java, PHP, Go, C# e Ruby usam regras conservadoras por padrões e contexto, com menor profundidade semântica; cada achado informa a engine utilizada. Análise entre arquivos e Tree-sitter ainda não estão implementados. Bandit complementa o CI; os achados do dashboard vêm do motor próprio.
+Python usa AST e taint analysis intraprocedural. JavaScript, TypeScript, Java, PHP, Go, C# e Ruby usam árvores Tree-sitter e regras sobre chamadas, atribuições e expressões; erros de sintaxe geram Gate ERROR. Comentários e textos que apenas citam chamadas não geram violações de chamada. Cada resultado informa o parser por arquivo. Não há resolução geral de aliases nem taint entre funções/arquivos nas linguagens Tree-sitter. Semgrep não está integrado; Bandit complementa o CI em Python.
+
+O corpus sintético autoral em `benchmarks/corpus.json` contém 42 casos, incluindo casos seguros e duas limitações conhecidas. `python -m scripts.benchmark` mede TP/FP/FN por regra e linha, precisão, recall e F1; resultados e limitações em `docs/benchmark.md`. Esse corpus de desenvolvimento não substitui uma avaliação independente. O pipeline também testa os códigos de saída 1 (bloqueado), 0 (aprovado) e 2 (erro de parsing).
 
 Use apenas código de autoria do grupo ou autorizado. O PDF fornecido foi consultado como referência e não deve ser publicado no repositório: está ignorado no Git.
 

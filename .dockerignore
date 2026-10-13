@@ -4,6 +4,9 @@ __pycache__
 *.pdf
 *.db
 .env
+*.pem
+*.tar.gz
+*.log
 tmp*
 reports
 node_modules

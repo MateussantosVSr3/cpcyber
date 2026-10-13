@@ -4,21 +4,21 @@
 
 1. **Problema (1 min):** detectar falhas antes do deploy; explicar SAST e por que o código não precisa ser executado.
 2. **Arquitetura (1 min):** mostrar C4, fila, banco, worker e integração Codex. Comparar modo Docker com modo local.
-3. **AST e regras (2 min):** explicar como Call, Assign, nomes importados e literais geram violações. Mostrar que comentário contendo eval não dispara a regra.
+3. **AST e regras (2 min):** comparar Python AST e Tree-sitter em JavaScript/Java. Mostrar chamada real detectada, comentário ignorado e sintaxe inválida retornando ERROR. Identificar o parser no JSON.
 4. **Taint (2 min):** exemplo request → term → query → cursor.execute. Mostrar arquivo, linha, CWE e rastro. Trocar pela consulta parametrizada e repetir.
 5. **Codex (1 min):** login oficial, escolher achado e mostrar explicação/código sugerido. Explicar que a saída não foi executada e não altera o Gate. Se a conta estiver indisponível, mostrar o erro real; não apresentar resposta fictícia como evidência.
 6. **DevSecOps (1 min):** abrir workflow, execução vermelha com vulnerabilidade, correção e execução verde. Mostrar a proteção da branch exigindo security-gates.
 7. **Avaliação crítica (1 min):** resultados do benchmark, falsos positivos, falsos negativos, fronteiras de linguagem e escolha de IA externa.
 
-## Distribuição sugerida para 4–5 integrantes
+## Equipe e divisão sugerida
 
 | Frente | Responsabilidade |
 | --- | --- |
-| Motor | AST, regras, taint, casos difíceis |
-| Backend | API, banco, fila, limites e logs |
-| IA | Login Codex, revisão, validação e avaliação semântica |
-| DevSecOps | Docker, CI, testes e branch protection |
-| Dashboard/documentação | Métricas, UX, roteiro e evidências; combinar outra frente se forem quatro integrantes |
+| Mateus dos Santos da Silva — 558436 | Arquitetura, deploy, autenticação e DevSecOps |
+| Nickolas Moreno Cardoso — 557132 | Parsers, regras, taint e benchmark |
+| André Giovane de Maria — 556384 | Integração IA, dashboard, relatórios e documentação |
+
+Esta divisão é uma sugestão para o ensaio, não uma declaração de autoria individual do trabalho realizado. O enunciado menciona 4–5 integrantes; confirmar a aceitação da equipe de três com o professor.
 
 ## Calendário de trabalho
 
@@ -34,10 +34,21 @@
 
 ## Medir precisão sem inventar números
 
-Criar corpus autorizado com rótulo esperado por regra e posição. Separar conjuntos usados na implementação dos usados na avaliação. Contar TP, FP e FN por categoria, não apenas por arquivo. Calcular precision=TP/(TP+FP), recall=TP/(TP+FN) e F1. Definir tratamento de denominador zero. Os testes unitários existentes comprovam regressões pontuais; **não equivalem a um benchmark representativo de precisão**.
+Executar `python -m scripts.benchmark`. O corpus autoral contém 42 casos: 29 TP, 0 FP e 2 FN na validação de desenvolvimento. Explicar a diferença entre precisão e recall, mostrar os dois casos perdidos e a falta de independência do corpus. Denominadores vazios retornam null. Ver `docs/benchmark.md`. Os testes unitários comprovam regressões pontuais; **não equivalem a um benchmark representativo de precisão**.
 
 Comparar também o julgamento humano com possible_false_positive da IA e avaliar se o código proposto compila, preserva comportamento e remove a falha. A base não executa automaticamente correções produzidas pelo modelo.
 
 ## Pendências acadêmicas
 
-O PDF cita parsing multilinguagem, mas também exige uma linguagem alvo escolhida no início. Esta versão implementa Python exclusivamente: apresentar essa decisão e confirmar o escopo cobrado. Tree-sitter, Java/JS, Semgrep e Ollama não estão implementados. A escolha Codex deve ser declarada, pois os dados são enviados a serviço externo e não há inferência local.
+Python foi a linguagem inicial. A versão atual também faz parsing Tree-sitter em JavaScript, TypeScript, Java, PHP, Go, C# e Ruby. Explicar que as regras estruturais adicionais não têm a mesma análise de fluxo de Python. Semgrep não é uma dependência do projeto; a stack do PDF lista ferramentas recomendadas, não a obrigação de usar todas simultaneamente.
+
+O CP2 exige LLM local; por decisão explícita do responsável o projeto mantém Codex externo. Não apresentar isso como cumprimento literal do requisito local. Declarar envio de contexto sanitizado ao provedor, dependência de conta/internet e limites de uso. A aceitação dessa substituição e do número de integrantes depende do professor.
+
+## Perguntas para ensaio
+
+- Por que SAST não executa o código recebido? Demonstrar parsing de um exemplo vulnerável sem importar o arquivo.
+- O que significa zero achados? Nenhuma regra disparou; não garante ausência de vulnerabilidades.
+- Como a IA influencia o bloqueio? Sugere severidade e remediação; o gate determinístico permanece preservado.
+- Como demonstrar escalabilidade? Mostrar API/fila/worker separados, teste de fila e replicação; não prometer alta disponibilidade numa única VPS.
+- Como comprovar CI? Abrir as execuções reais e a regra da branch. Não confundir arquivo YAML com pipeline executado.
+- Como proteger o acesso? Login, hash scrypt, cookie seguro, sessão revogável, API interna e TLS. Nunca mostrar `.env`, chave SSH ou tokens na apresentação.

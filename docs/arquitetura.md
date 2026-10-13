@@ -4,7 +4,7 @@
 
 ~~~mermaid
 flowchart LR
-    Dev[Integrante / Desenvolvedor] -->|Código Python autorizado| SAST[Sentinela SAST]
+    Dev[Integrante / Desenvolvedor] -->|Código autorizado em 8 linguagens| SAST[NULL SENTRY]
     SAST -->|Achados, CWE, Gate e tendência| Dev
     Dev -->|Login no navegador| OpenAI[OpenAI / Conta Codex]
     SAST -->|Revisão solicitada pelo usuário| OpenAI
@@ -15,10 +15,11 @@ flowchart LR
 
 ~~~mermaid
 flowchart LR
-    UI[Dashboard HTML/CSS/JS] -->|HTTP mesma origem| API[FastAPI :8000]
+    UI[Login e Dashboard] -->|HTTPS| Proxy[Nginx :443]
+    Proxy -->|Cookie de sessão| API[FastAPI :8000]
     API --> DB[(PostgreSQL)]
     API -->|ID da análise| Redis[(Redis / broker)]
-    Redis --> Worker[Celery / Python AST]
+    Redis --> Worker[Celery / Python AST e Tree-sitter]
     Worker --> DB
     API -->|Bearer interno| Bridge[Serviço Node Codex]
     Bridge -->|JSON-RPC por stdio| Codex[Codex App Server]
@@ -28,12 +29,12 @@ flowchart LR
 
 ## Fluxo de análise
 
-1. A API valida até 100 caminhos relativos .py, até 100 KB por arquivo e 1 MB total. O corpo HTTP tem limite adicional de 2 MB.
+1. A API autentica a sessão e valida até 100 caminhos relativos das linguagens suportadas, até 100 KB por arquivo e 1 MB total. O corpo HTTP tem limite adicional de 2 MB.
 2. Persiste uma análise QUEUED e o texto, usando UUID. O broker recebe somente o ID.
 3. O worker lê a análise e marca RUNNING. O parser não importa módulos do código submetido.
 4. O motor gera achados por arquivo/linha/regra, CWE, confiança, rastreio e contexto com literais string/bytes ocultos.
 5. Grava COMPLETED e remove o código original da linha do banco. Falha operacional gera FAILED/ERROR.
-6. O dashboard consulta estado e métricas. Cada análise continua no histórico; cartões usam a última análise concluída por projeto entre as últimas 100.
+6. O dashboard consulta estado e métricas. Cartões usam a última análise por projeto/tipo entre as últimas 100; o gráfico mostra até oito análises com filtro por projeto, severidades e variação contra a análise anterior do mesmo projeto/tipo. Arquivos críticos são separados por projeto.
 7. A revisão Codex é solicitada por achado; a resposta validada fica separada da severidade determinística. Não aplica patches e não executa testes automaticamente.
 
 O corpo da revisão é tratado como dado não confiável. O serviço inicia uma thread efêmera com sandbox de leitura e shell/web/multiagentes desativados. Solicitações de ferramentas originadas no protocolo são recusadas. A ponte recebe só o achado, não o diretório do usuário nem seu repositório. A saída é validada contra um formato restrito.
@@ -52,7 +53,9 @@ O sistema não implementa outbox transacional, dead-letter queue, deduplicação
 
 ## Fronteiras de segurança
 
-Instalação local para um operador confiável. Só a API é publicada, vinculada a 127.0.0.1. PostgreSQL, Redis e ponte ficam na rede interna do Compose. Mutação via navegador exige mesma origem e cabeçalho personalizado; TrustedHost reduz exposição por Host inesperado. Isso não substitui autenticação de usuários. Não publicar em rede aberta sem implementar usuários, isolamento de sessões Codex, autorização por projeto, TLS, rate limiting e limites de armazenamento.
+Instalação autenticada para um operador. Somente Nginx publica 80/443, com TLS público e redirecionamento. PostgreSQL, Redis, API e ponte ficam na rede interna. Usuário/hash scrypt vêm do `.env`; senhas em texto puro não são persistidas. O cookie de sessão tem HttpOnly, Secure em HTTPS e SameSite=Strict. O banco armazena apenas o digest do token, vencimento e versão da identidade. Logout revoga o token; troca de senha invalida sessões anteriores. Sessões vencem em oito horas. O proxy limita tentativas de login a cinco por minuto com burst de cinco. Mutações exigem mesma origem e cabeçalho personalizado. `/health` e a página de login são públicos, relatórios e integrações são privados.
+
+Não há múltiplos usuários, papéis, autorização por projeto ou isolamento de contas Codex. A porta administrativa SSH e o Security Group são gerenciados separadamente; o operador optou por manter 22/80/443 abertas. Limites globais de armazenamento, backups automatizados e alta disponibilidade não estão implementados.
 
 Nenhum upload é gravado como executável nem extraído de ZIP. Tokens permanecem no volume do Codex, não no JavaScript. O segredo do serviço é gerado aleatoriamente. A sessão pertence ao operador; esta aplicação não implementa OAuth multiusuário nem compartilhamento público de uma conta.
 
@@ -62,6 +65,7 @@ Literais são ocultos no contexto exibido e enviado à IA, mas nomes de variáve
 
 - Python AST: atende a escolha inicial de linguagem e permite explicar o algoritmo durante a defesa.
 - Regras próprias + Bandit em CI: evidencia implementação autoral sem abandonar uma ferramenta consolidada.
-- Codex App Server: permite login oficial na hora, como solicitado, e revisão estruturada. É alteração em relação ao LLM local sugerido.
+- Tree-sitter: parsing real das sete famílias adicionais, com regras sobre nós, não busca livre no texto. Não equivale a resolução de tipos ou compilação completa.
+- Codex App Server: integração mantida por decisão do responsável, substituindo a exigência de LLM local do CP2. Essa divergência deve ser declarada na defesa.
 - Gate determinístico: a IA não pode liberar automaticamente um achado de alta severidade.
 - Dashboard sem dependências externas: nenhum CDN obrigatório; dados vêm da API e não de indicadores fictícios.

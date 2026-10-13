@@ -16,5 +16,4 @@ keyserver.pem
 deploy-validation*.png
 null-sentry*.png
 .chrome-qa*/
-.github/workflows/security.yml
 pdf-headers.txt

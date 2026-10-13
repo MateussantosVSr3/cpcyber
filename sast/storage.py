@@ -33,6 +33,7 @@ def run(conn, sql, args=()):
 def init():
     with connection() as conn:
         run(conn, "CREATE TABLE IF NOT EXISTS scans (id TEXT PRIMARY KEY, project TEXT NOT NULL, created TEXT NOT NULL, status TEXT NOT NULL, files TEXT NOT NULL, result TEXT NOT NULL)")
+        run(conn, "CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, expires BIGINT NOT NULL, identity_version TEXT NOT NULL)")
 
 
 def create(project, files):

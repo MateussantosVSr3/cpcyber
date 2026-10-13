@@ -5,11 +5,11 @@ from pathlib import PurePosixPath, Path
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, field_validator
-from sast import ai, storage
+from sast import ai, storage, auth
 from sast.jobs import process
 
 
@@ -46,7 +46,7 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="Sentinela SAST", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None)
+app = FastAPI(title="NULL//SENTRY", version="0.2.0", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["localhost", "127.0.0.1", "testserver", "api", "3.149.250.106"],
@@ -55,6 +55,13 @@ app.add_middleware(
 
 @app.middleware("http")
 async def local_boundary(request: Request, call_next):
+    public = {'/health', '/login', '/api/auth/login', '/static/login.js', '/static/login.css', '/static/favicon.svg'}
+    if request.url.path not in public:
+        user = auth.user_for_session(request.cookies.get(auth.COOKIE))
+        if not user:
+            response = JSONResponse({'detail': 'Autenticação necessária.'}, status_code=401) if request.url.path.startswith('/api/') else RedirectResponse('/login', status_code=303)
+            response.headers['Cache-Control'] = 'no-store'
+            return response
     if request.url.path.startswith("/api/"):
         origin = request.headers.get("origin")
         if origin and origin != str(request.base_url).rstrip("/"):
@@ -80,6 +87,42 @@ async def local_boundary(request: Request, call_next):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+class Credentials(BaseModel):
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=256)
+
+
+@app.get('/login')
+def login_page():
+    return FileResponse('web/login.html')
+
+
+@app.post('/api/auth/login')
+def login(payload: Credentials, request: Request):
+    if not auth.configured():
+        raise HTTPException(503, 'Configure o usuário administrativo no servidor.')
+    if not auth.verify(payload.username, payload.password):
+        raise HTTPException(401, 'Usuário ou senha incorretos.')
+    auth.revoke(request.cookies.get(auth.COOKIE))
+    response = JSONResponse({'username': payload.username})
+    response.set_cookie(auth.COOKIE, auth.issue_session(), max_age=auth.TTL, httponly=True,
+                        secure=request.url.scheme == 'https', samesite='strict', path='/')
+    return response
+
+
+@app.post('/api/auth/logout')
+def logout(request: Request):
+    auth.revoke(request.cookies.get(auth.COOKIE))
+    response = JSONResponse({'status': 'ok'})
+    response.delete_cookie(auth.COOKIE, path='/')
+    return response
+
+
+@app.get('/api/auth/me')
+def current_user():
+    return {'username': os.getenv('SAST_USERNAME')}
 
 
 @app.post("/api/scans", status_code=202)
@@ -133,15 +176,8 @@ def detail(scan_id: str):
 @app.get("/api/metrics")
 def metrics(project: str | None = None):
     items = [s for s in storage.recent() if (project is None or s["project"] == project) and s["status"] == "COMPLETED"]
-    latest = {}
-    for item in items:
-        latest.setdefault(item["project"], item)
-    findings = [f for s in latest.values() for f in s["result"].get("findings", [])]
-    return {"severity": dict(Counter(f["severity"] for f in findings)),
-        "critical_files": Counter(f["file"] for f in findings if f["severity"] in {"HIGH", "CRITICAL"}).most_common(5),
-        "trend": [{"project": s["project"], "created": s["created"], "count": len(s["result"].get("findings", [])),
-            "gate": s["result"].get("gate", "PENDING"), "scan_type": s["result"].get("scan_type", "code")} for s in reversed(items)],
-        "projects": len(latest), "scans": len(items)}
+    from sast.metrics import summarize
+    return summarize(items)
 
 
 def call_ai(route, payload=None):

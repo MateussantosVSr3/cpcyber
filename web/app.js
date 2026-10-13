@@ -5,6 +5,7 @@ function notice(message) { $('notice').textContent = message; $('notice').hidden
 async function api(url, options = {}) {
   const response = await fetch(url, { ...options, headers: { 'Content-Type': 'application/json', 'X-SAST-Client': 'dashboard', ...options.headers } });
   const data = await response.json();
+  if (response.status === 401) { location.replace('/login'); throw new Error('Sessão encerrada. Entre novamente.'); }
   if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Verifique os campos e os limites dos arquivos.');
   return data;
 }
@@ -26,11 +27,30 @@ async function refresh() {
     button.addEventListener('click', () => openReport(scan.id).catch(e => notice(e.message))); action.append(button); row.append(action); $('history-body').append(row);
   }
   $('trend').replaceChildren();
-  const trend = metrics.trend.slice(-8);
+  const selector = $('trend-project'), chosen = selector.value;
+  selector.replaceChildren(new Option('Todos os projetos', ''));
+  [...new Set(metrics.trend.map(item => item.project))].sort().forEach(project => selector.add(new Option(project, project)));
+  selector.value = chosen;
+  const trend = metrics.trend.filter(item => !selector.value || item.project === selector.value).slice(-8);
+  const chart = $('trend-chart'); chart.replaceChildren();
+  if (trend.length) {
+    const maximum = Math.max(1, ...trend.map(item => item.count));
+    const bars = element('div', undefined, 'trend-bars');
+    for (const item of trend) {
+      const column = element('div', undefined, 'trend-column');
+      column.title = item.project + ' / ' + date(item.created) + ': ' + item.count + ' achados';
+      const bar = element('div', undefined, 'trend-bar');
+      bar.style.height = Math.max(2, item.count / maximum * 85) + 'px';
+      column.append(element('strong', item.count), bar, element('small', date(item.created).slice(0,5)));
+      bars.append(column);
+    }
+    chart.append(bars, element('p', 'Achados por análise, do mais antigo ao mais recente. Variação comparada apenas ao mesmo projeto e tipo.', 'subtle'));
+  }
   if (!trend.length) $('trend').append(element('p','Execute uma análise para iniciar o histórico.','empty'));
   trend.reverse().forEach((item,index) => {
     const row = element('div',undefined,'activity-row'), indexNode = element('span',String(index + 1).padStart(2,'0'),'activity-index'), info = element('div',undefined,'activity-info');
-    info.append(element('strong',item.project),element('small',(item.scan_type === 'website' ? 'WEB' : 'CODE') + '  /  ' + date(item.created)));
+    const delta = item.delta === null || item.delta === undefined ? 'primeira medição' : (item.delta > 0 ? '+' : '') + item.delta + ' vs. anterior';
+    info.append(element('strong',item.project),element('small',(item.scan_type === 'website' ? 'WEB' : 'CODE') + ' / ' + date(item.created)),element('small', delta));
     const gate = badge(item.gate), count = element('span',item.count + (item.count === 1 ? ' achado' : ' achados'),'activity-count');
     row.append(indexNode,info,gate,count); $('trend').append(row);
   });
@@ -38,6 +58,8 @@ async function refresh() {
   if (!metrics.critical_files.length) $('critical').append(element('p','Nenhum arquivo crítico identificado.','empty'));
   for (const [file, count] of metrics.critical_files) { const row = element('div',undefined,'critical-row'); row.append(element('code',file),element('span',count + ' achados','badge HIGH')); $('critical').append(row); }
 }
+$('trend-project').addEventListener('change', () => refresh().catch(e => notice(e.message)));
+$('logout').addEventListener('click', async () => { try { await api('/api/auth/logout', {method: 'POST', body: '{}'}); location.replace('/login'); } catch(e) { notice(e.message); } });
 async function openReport(id, scroll = true) {
   selected = await api('/api/scans/' + id); $('results').hidden = false; renderReport();
   if (scroll) $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });

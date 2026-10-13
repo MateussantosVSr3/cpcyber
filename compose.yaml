@@ -14,6 +14,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       CODEX_BRIDGE_URL: http://codex:8090
       BRIDGE_TOKEN: ${BRIDGE_TOKEN:?Execute python scripts/init_env.py}
+      SAST_USERNAME: ${SAST_USERNAME:?Execute python scripts/init_env.py}
+      SAST_PASSWORD_HASH: ${SAST_PASSWORD_HASH:?Execute python scripts/init_env.py}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -28,7 +30,7 @@ services:
     cap_drop: ["ALL"]
   worker:
     build: .
-    command: ["celery", "-A", "sast.jobs:celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    command: ["celery", "-A", "sast.jobs:celery_app", "worker", "--loglevel=info", "--concurrency=${CELERY_CONCURRENCY:-1}"]
     environment: *app-env
     depends_on:
       postgres: { condition: service_healthy }

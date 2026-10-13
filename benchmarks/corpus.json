@@ -1,0 +1,411 @@
+{
+  "description": "Corpus sintético autoral e autorizado. Não executar os fontes. Inclui limitações conhecidas; não é benchmark independente.",
+  "cases": [
+    {
+      "id": "py-secret",
+      "file": "sample.py",
+      "source": "password = \"demo-only-secret\"",
+      "expected": [
+        [
+          "S001",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "py-eval",
+      "file": "sample.py",
+      "source": "eval(input())",
+      "expected": [
+        [
+          "S002",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "py-shell",
+      "file": "sample.py",
+      "source": "import os\nos.system(input())",
+      "expected": [
+        [
+          "S003",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "py-taint",
+      "file": "sample.py",
+      "source": "name = input()\nquery = 'SELECT ' + name\ndb.execute(query)",
+      "expected": [
+        [
+          "S004",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "py-sql-pattern",
+      "file": "sample.py",
+      "source": "db.execute('SELECT ' + name)",
+      "expected": [
+        [
+          "S005",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "py-pickle",
+      "file": "sample.py",
+      "source": "import pickle\npickle.loads(data)",
+      "expected": [
+        [
+          "S006",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "py-hash",
+      "file": "sample.py",
+      "source": "import hashlib\nhashlib.md5(data)",
+      "expected": [
+        [
+          "S007",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "py-tls",
+      "file": "sample.py",
+      "source": "requests.get(url, verify=False)",
+      "expected": [
+        [
+          "S008",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "py-path",
+      "file": "sample.py",
+      "source": "open(input())",
+      "expected": [
+        [
+          "S009",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "py-safe-sql",
+      "file": "sample.py",
+      "source": "value = input()\ndb.execute('SELECT * FROM users WHERE name = ?', [value])",
+      "expected": []
+    },
+    {
+      "id": "py-safe-comments",
+      "file": "sample.py",
+      "source": "# eval(input())\ntext = \"os.system(user)\"",
+      "expected": []
+    },
+    {
+      "id": "py-safe-overwrite",
+      "file": "sample.py",
+      "source": "value = input()\nvalue = 'SELECT 1'\ndb.execute(value)",
+      "expected": []
+    },
+    {
+      "id": "py-known-interprocedural",
+      "file": "sample.py",
+      "source": "def source():\n    return input()\nvalue = source()\ndb.execute(value)",
+      "expected": [
+        [
+          "S004",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "js-secret",
+      "file": "sample.js",
+      "source": "const api_key = 'demo-only-secret';",
+      "expected": [
+        [
+          "M001",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-eval",
+      "file": "sample.js",
+      "source": "eval(userInput);",
+      "expected": [
+        [
+          "M002",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-two-calls",
+      "file": "sample.js",
+      "source": "eval(a);\neval(b);",
+      "expected": [
+        [
+          "M002",
+          1
+        ],
+        [
+          "M002",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "js-shell",
+      "file": "sample.js",
+      "source": "child_process.exec(userInput);",
+      "expected": [
+        [
+          "M003",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-sql",
+      "file": "sample.js",
+      "source": "db.query('SELECT * FROM users WHERE id = ' + id);",
+      "expected": [
+        [
+          "M004",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-template-sql",
+      "file": "sample.js",
+      "source": "db.query(`SELECT * FROM users WHERE id = ${id}`);",
+      "expected": [
+        [
+          "M004",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-hash",
+      "file": "sample.js",
+      "source": "md5(data);",
+      "expected": [
+        [
+          "M005",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-tls",
+      "file": "sample.js",
+      "source": "const options = { rejectUnauthorized: false };",
+      "expected": [
+        [
+          "M006",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-dom",
+      "file": "sample.js",
+      "source": "element.innerHTML = userInput;",
+      "expected": [
+        [
+          "M007",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "js-safe-comments",
+      "file": "sample.js",
+      "source": "// eval(userInput);\nconst text = 'document.write(user)';",
+      "expected": []
+    },
+    {
+      "id": "js-safe-sql",
+      "file": "sample.js",
+      "source": "db.query('SELECT * FROM users WHERE id = ?', [id]);",
+      "expected": []
+    },
+    {
+      "id": "js-safe-dom",
+      "file": "sample.js",
+      "source": "element.textContent = userInput;",
+      "expected": []
+    },
+    {
+      "id": "js-known-alias",
+      "file": "sample.js",
+      "source": "import { exec as run } from 'child_process';\nrun(userInput);",
+      "expected": [
+        [
+          "M003",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "ts-dom",
+      "file": "sample.ts",
+      "source": "const x: string = userInput;\nelement.innerHTML = x;",
+      "expected": [
+        [
+          "M007",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "tsx-dom",
+      "file": "sample.tsx",
+      "source": "const page = <div dangerouslySetInnerHTML={{__html: data}} />;",
+      "expected": [
+        [
+          "M007",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "jsx-safe",
+      "file": "sample.jsx",
+      "source": "const page = <div>{text}</div>;",
+      "expected": []
+    },
+    {
+      "id": "java-shell",
+      "file": "Main.java",
+      "source": "class Main { void run(String cmd) { Runtime.getRuntime().exec(cmd); } }",
+      "expected": [
+        [
+          "M003",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "java-sql",
+      "file": "Main.java",
+      "source": "class Main { void run(String id) { db.execute(\"SELECT * FROM users WHERE id = \" + id); } }",
+      "expected": [
+        [
+          "M004",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "java-safe",
+      "file": "Main.java",
+      "source": "class Main { void run() { System.out.println(\"eval(user)\"); } }",
+      "expected": []
+    },
+    {
+      "id": "php-shell",
+      "file": "sample.php",
+      "source": "<?php system($command);",
+      "expected": [
+        [
+          "M003",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "php-secret",
+      "file": "sample.php",
+      "source": "<?php $password = 'demo-only-secret';",
+      "expected": [
+        [
+          "M001",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "php-safe",
+      "file": "sample.php",
+      "source": "<?php echo htmlspecialchars($input);",
+      "expected": []
+    },
+    {
+      "id": "go-tls",
+      "file": "sample.go",
+      "source": "package main\nvar config = tls.Config{InsecureSkipVerify: true}",
+      "expected": [
+        [
+          "M006",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "go-safe",
+      "file": "sample.go",
+      "source": "package main\nvar config = tls.Config{InsecureSkipVerify: false}",
+      "expected": []
+    },
+    {
+      "id": "cs-shell",
+      "file": "Sample.cs",
+      "source": "class Sample { void Run() { Process.Start(command); } }",
+      "expected": [
+        [
+          "M003",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "cs-safe",
+      "file": "Sample.cs",
+      "source": "class Sample { void Run() { Console.WriteLine(\"ok\"); } }",
+      "expected": []
+    },
+    {
+      "id": "rb-shell",
+      "file": "sample.rb",
+      "source": "system(command)",
+      "expected": [
+        [
+          "M003",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "rb-secret",
+      "file": "sample.rb",
+      "source": "password = 'demo-only-secret'",
+      "expected": [
+        [
+          "M001",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "rb-safe",
+      "file": "sample.rb",
+      "source": "# system(command)\nputs \"eval(user)\"",
+      "expected": []
+    }
+  ]
+}

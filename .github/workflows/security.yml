@@ -1,0 +1,54 @@
+name: Security Gates
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r requirements.txt
+      - name: Testes funcionais e de precisão
+        run: python -m unittest discover -s tests -v
+      - name: Contrato da integração Codex
+        run: node --test codex-bridge/rpc.test.mjs
+      - name: Benchmark rotulado e contrato do Gate
+        run: |
+          python -m scripts.benchmark --output reports/benchmark.json
+          python -m scripts.verify_gates
+      - name: Security Gate AST (HIGH e CRITICAL)
+        run: python -m sast.cli sast --format sarif --output reports/sast.sarif
+      - name: Security Gate Bandit (HIGH)
+        if: always()
+        run: bandit -r sast scripts --severity-level high -f json -o reports/bandit.json
+      - name: Validar infraestrutura
+        run: |
+          python scripts/init_env.py
+          docker compose config --quiet
+          docker compose build api worker
+      - name: Smoke test com PostgreSQL e Celery
+        run: |
+          docker compose up -d --wait api worker
+          docker compose exec -T api python < scripts/smoke.py
+      - name: Diagnóstico em caso de falha
+        if: failure()
+        run: docker compose logs --no-color --tail 100 api worker postgres redis
+      - name: Encerrar containers
+        if: always()
+        run: docker compose down
+      - name: Guardar relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: reports/
