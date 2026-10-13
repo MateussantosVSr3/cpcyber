@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew Sentinela SAST IP certificate
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sentinela-sast/deploy/renew-tls.sh

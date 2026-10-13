@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+*.pdf
+*.db
+.env
+tmp*
+reports
+node_modules
