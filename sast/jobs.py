@@ -1,6 +1,6 @@
 import os
 from sast import storage
-from sast.engine import scan
+from sast.scanner import scan
 from sast.site_scanner import scan_site
 
 

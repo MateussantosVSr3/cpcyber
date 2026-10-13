@@ -2,7 +2,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from sast.engine import scan, gate
+from sast.engine import gate
+from sast.scanner import scan
+from sast.multilang import SUPPORTED
+
+ALLOWED = SUPPORTED | {".py"}
 
 EXCLUDED = {".git", ".venv", "venv", "node_modules", "__pycache__"}
 
@@ -21,21 +25,21 @@ def sarif(result):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sentinela Python SAST — nunca executa código analisado")
+    parser = argparse.ArgumentParser(description="NULL//SENTRY SAST multilanguage — nunca executa código analisado")
     parser.add_argument("path")
     parser.add_argument("--output")
     parser.add_argument("--format", choices=["json", "sarif"], default="json")
     parser.add_argument("--threshold", choices=["LOW", "MEDIUM", "HIGH", "CRITICAL"], default="HIGH")
     args = parser.parse_args()
     root = Path(args.path)
-    paths = sorted(root.rglob("*.py")) if root.is_dir() else [root]
+    paths = sorted(path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in ALLOWED) if root.is_dir() else [root]
     files, errors = {}, []
     for path in paths:
         if any(part in EXCLUDED for part in path.parts):
             continue
         relative = path.relative_to(root).as_posix() if root.is_dir() else path.name
         try:
-            if path.is_symlink() or path.suffix != ".py" or path.stat().st_size > 100_000:
+            if path.is_symlink() or path.suffix.lower() not in ALLOWED or path.stat().st_size > 100_000:
                 raise ValueError("Arquivo não suportado, symlink ou maior que 100 KB")
             if root.is_dir() and not path.resolve().is_relative_to(root.resolve()):
                 raise ValueError("Arquivo fora do diretório autorizado")
@@ -44,7 +48,7 @@ def main():
             errors.append({"file": relative, "message": str(exc)})
     result = scan(files)
     if not files:
-        errors.append({"file": str(root), "message": "Nenhum arquivo Python analisável."})
+        errors.append({"file": str(root), "message": "Nenhum arquivo de linguagem suportada foi encontrado."})
     result["errors"].extend(errors)
     result["gate"] = gate(result["findings"], result["errors"], args.threshold)
     output = json.dumps(sarif(result) if args.format == "sarif" else result, indent=2, ensure_ascii=False)

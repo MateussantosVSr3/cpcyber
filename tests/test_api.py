@@ -46,7 +46,7 @@ class ApiTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_reject_bad_paths(self):
-        for path in ["../a.py", "/a.py", "C:/a.py", "a.js"]:
+        for path in ["../a.py", "/a.py", "C:/a.py", "a.exe"]:
             with self.assertRaises(ValidationError):
                 Submission(project="test", files={path: "x=1"})
 
@@ -65,6 +65,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(item["result"]["gate"], "BLOCKED")
         self.assertNotIn("files", item)
         self.assertEqual(storage.get(scan_id, True)["files"], {})
+
+    def test_javascript_scan_over_http(self):
+        status, body = asyncio.run(request("POST", "/api/scans", {"project": "js", "files": {"app.js": "element.innerHTML = input; eval(input)"}}, {"x-sast-client": "dashboard"}))
+        self.assertEqual(status, 202, body)
+        scan_id = json.loads(body)["id"]
+        process(scan_id)
+        item = detail(scan_id)
+        self.assertEqual(item["result"]["gate"], "BLOCKED")
+        self.assertEqual({f["engine"] for f in item["result"]["findings"]}, {"multilang-pattern"})
 
     @patch("sast.jobs.scan_site", return_value={"gate": "PASSED", "findings": [], "errors": [], "files_scanned": 1, "scan_type": "website"})
     @patch("sast.api.validate_public_url", create=True)

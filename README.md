@@ -1,8 +1,8 @@
 # NULL//SENTRY — Security Operations Platform
 
-Projeto Integrador FIAP. Linguagem alvo inicial: **Python**. IA escolhida: **Codex, com login oficial da conta ChatGPT no navegador**.
+Projeto Integrador FIAP. Linguagens suportadas: **Python, JavaScript, TypeScript, Java, PHP, Go, C# e Ruby**. IA escolhida: **Codex, com login oficial da conta ChatGPT no navegador**.
 
-Plataforma de segurança com motor AST próprio, nove regras Python, taint analysis intraprocedural, inspeção passiva de sites públicos, FastAPI, dashboard, histórico, relatórios JSON/SARIF e Security Gates. Em Docker: PostgreSQL, Redis, Celery e serviço independente de integração Codex. Não é um scanner comercial nem uma garantia de ausência de falhas.
+Plataforma de segurança com motor AST/taint profundo para Python, camada SAST multilanguage para sete famílias adicionais, inspeção passiva de sites públicos, FastAPI, dashboard, histórico, relatórios JSON/SARIF e Security Gates. Em Docker: PostgreSQL, Redis, Celery e serviço independente de integração Codex. Não é um scanner comercial nem uma garantia de ausência de falhas.
 
 ## Equipe
 
@@ -27,7 +27,7 @@ Abra **http://localhost:8000**. Aguarde a construção dos containers. O código
 4. Depois da conexão, clique em **Revisar com Codex** em um achado. A revisão é opcional e explícita; envia contexto com literais ocultos.
 5. Analise examples/safe.py com o mesmo nome de projeto: resultado esperado PASSED. Observe a tendência e exporte o JSON.
 
-Para analisar uma página pública, selecione **Site público**, informe uma URL HTTP/HTTPS e aguarde o worker. A inspeção é passiva e limitada: verifica transporte, headers, formulários, conteúdo misto e padrões perigosos no HTML/JavaScript retornado, sem explorar ou alterar o alvo. Endereços privados, locais, reservados e portas diferentes de 80/443 são bloqueados. Os resultados podem ser baixados em JSON ou SARIF.
+Para analisar uma página pública, selecione **Site público**, informe uma URL HTTP/HTTPS e aguarde o worker. A inspeção é passiva e limitada: verifica transporte, headers, formulários, conteúdo misto e padrões perigosos no HTML/JavaScript retornado, sem explorar ou alterar o alvo. Endereços privados, locais, reservados e portas diferentes de 80/443 são bloqueados. Os resultados podem ser baixados em JSON ou SARIF. O botão **PDF + Codex** solicita um resumo executivo à IA e gera um documento profissional com gate, prioridades, plano de ação e todos os achados.
 
 O login por código pode precisar ser habilitado nas configurações de segurança da conta ou pelo administrador. Acesso, disponibilidade e limites dependem da conta. O sistema não reutiliza automaticamente a sessão deste aplicativo Codex. Uma sessão separada é criada no serviço do projeto.
 
@@ -68,6 +68,9 @@ O workflow .github/workflows/security.yml executa testes, AST, Bandit, build Doc
 | sast/jobs.py | Worker Celery e alternativa local |
 | sast/storage.py | Repositório SQLite/PostgreSQL |
 | sast/cli.py | Gate de CI e relatórios JSON/SARIF |
+| sast/scanner.py / multilang.py | Orquestração e regras multilanguage |
+| sast/site_scanner.py | Inspeção passiva de páginas públicas com proteção SSRF |
+| sast/pdf_report.py | Relatório executivo PDF com resumo Codex |
 | codex-bridge/ | App Server via JSON-RPC, login e revisão estruturada |
 | web/ | Dashboard servido pela mesma origem |
 | tests/ | Regressões de precisão, segurança e API |
@@ -91,7 +94,7 @@ A classificação é contextual e conservadora: MD5 pode ter uso não criptográ
 
 ## Situação da validação
 
-O deploy de produção foi validado em Ubuntu com Docker Compose: 41 testes passaram (33 Python + 8 Node), PostgreSQL, Redis e Celery processaram análises reais, e os gates vulnerável/seguro retornaram BLOCKED/PASSED. Uma URL pública também foi inspecionada de ponta a ponta pelo worker, com achados web persistidos e disponíveis para relatório JSON/SARIF. HTTPS público com certificado confiável, redirecionamento HTTP e renovação automática foram exercitados. A interface NULL//SENTRY, totalmente dark e inspirada em terminais de segurança, foi validada visualmente no Chrome pela URL pública.
+O deploy de produção foi validado em Ubuntu com Docker Compose: 45 testes passaram (37 Python + 8 Node), PostgreSQL, Redis e Celery processaram análises reais, e os gates vulnerável/seguro retornaram BLOCKED/PASSED. Uma URL pública também foi inspecionada de ponta a ponta pelo worker, com achados web persistidos e disponíveis para relatório JSON/SARIF/PDF. HTTPS público com certificado confiável, redirecionamento HTTP e renovação automática foram exercitados. A interface NULL//SENTRY, totalmente dark e inspirada em terminais de segurança, foi validada visualmente no Chrome pela URL pública.
 
 As dependências diretas Python estão fixadas; transitivas e imagens ainda podem receber lock/digests para maior reprodutibilidade. O CLI Codex foi validado e fixado em `CODEX_VERSION=0.162.1` no ambiente de produção. O login oficial por device code, a conexão de uma conta ChatGPT e uma revisão real de achado foram concluídos com sucesso.
 
@@ -99,7 +102,7 @@ As dependências diretas Python estão fixadas; transitivas e imagens ainda pode
 
 O enunciado recomenda LLM local (Ollama/Llama 3). Esta implementação usa Codex **conforme a escolha do projeto**, com inferência externa e dependência de conta/internet. Registrar essa alteração na defesa e confirmar sua aceitação com o professor é uma pendência acadêmica. Ollama não está implementado.
 
-Python foi escolhido no início. JS/Java/Tree-sitter e análise entre arquivos não estão implementados. Bandit complementa o CI; os achados do dashboard vêm do motor próprio. A interface não promete suporte multilinguagem.
+Python usa AST e taint analysis intraprocedural. JavaScript, TypeScript, Java, PHP, Go, C# e Ruby usam regras conservadoras por padrões e contexto, com menor profundidade semântica; cada achado informa a engine utilizada. Análise entre arquivos e Tree-sitter ainda não estão implementados. Bandit complementa o CI; os achados do dashboard vêm do motor próprio.
 
 Use apenas código de autoria do grupo ou autorizado. O PDF fornecido foi consultado como referência e não deve ser publicado no repositório: está ignorado no Git.
 

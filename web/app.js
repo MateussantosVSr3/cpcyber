@@ -102,14 +102,15 @@ $('disconnect').addEventListener('click',async () => { try { await api('/api/cod
 $('mode-code').addEventListener('click',() => { $('mode-code').classList.add('active'); $('mode-site').classList.remove('active'); $('scan-form').hidden = false; $('site-form').hidden = true; });
 $('mode-site').addEventListener('click',() => { $('mode-site').classList.add('active'); $('mode-code').classList.remove('active'); $('site-form').hidden = false; $('scan-form').hidden = true; });
 $('example').addEventListener('click',() => { $('source').value = example; $('files').value = ''; $('file-summary').textContent = 'Exemplo didático vulnerável: nunca execute este código.'; });
-$('files').addEventListener('change',() => { $('file-summary').textContent = $('files').files.length ? $('files').files.length + ' arquivo(s) selecionado(s). O texto colado será ignorado.' : 'O código colado será analisado como main.py.'; });
+$('files').addEventListener('change',() => { $('file-summary').textContent = $('files').files.length ? $('files').files.length + ' arquivo(s) selecionado(s). O texto colado será ignorado.' : 'Uploads podem misturar linguagens em uma única análise.'; });
 $('scan-form').addEventListener('submit',async event => {
   event.preventDefault(); $('scan-button').disabled = true; notice('');
   try {
     let files = {}, total = 0;
     if ($('files').files.length > 100) throw new Error('Limite de 100 arquivos.');
-    for (const file of $('files').files) { if (!file.name.endsWith('.py') || file.size > 100000) throw new Error('Use arquivos .py de até 100 KB.'); if (Object.hasOwn(files,file.name)) throw new Error('Há arquivos com nomes duplicados.'); total += file.size; if (total > 1000000) throw new Error('Limite total de 1 MB.'); files[file.name] = await file.text(); }
-    if (!Object.keys(files).length) { if (!$('source').value.trim()) throw new Error('Cole código ou selecione arquivos Python.'); files = { 'main.py': $('source').value }; }
+    const allowed = ['.py','.js','.jsx','.ts','.tsx','.java','.php','.go','.cs','.rb'];
+    for (const file of $('files').files) { if (!allowed.some(ext => file.name.toLowerCase().endsWith(ext)) || file.size > 100000) throw new Error('Use apenas linguagens suportadas e arquivos de até 100 KB.'); if (Object.hasOwn(files,file.name)) throw new Error('Há arquivos com nomes duplicados.'); total += file.size; if (total > 1000000) throw new Error('Limite total de 1 MB.'); files[file.name] = await file.text(); }
+    if (!Object.keys(files).length) { if (!$('source').value.trim()) throw new Error('Cole código ou selecione arquivos do projeto.'); files = { ['main' + $('language').value]: $('source').value }; }
     const scan = await api('/api/scans',{method:'POST',body:JSON.stringify({project:$('project').value.trim(),files})});
     await trackScan(scan);
   } catch(e) { notice(e.message); } finally { $('scan-button').disabled = false; }
@@ -129,5 +130,10 @@ $('download-sarif').addEventListener('click',() => {
   const findings = selected.result.findings || [], rules = [...new Map(findings.map(f => [f.rule,{id:f.rule,name:f.title,shortDescription:{text:f.title},help:{text:f.remediation}}])).values()];
   const sarif = {version:'2.1.0','$schema':'https://json.schemastore.org/sarif-2.1.0.json',runs:[{tool:{driver:{name:'NULL//SENTRY',informationUri:location.origin,rules}},results:findings.map(f => ({ruleId:f.rule,level:['CRITICAL','HIGH'].includes(f.severity)?'error':f.severity==='MEDIUM'?'warning':'note',message:{text:f.title + '. ' + f.remediation},locations:[{physicalLocation:{artifactLocation:{uri:f.file},region:{startLine:f.line||1,startColumn:f.column||1}}}],fingerprints:{'null-sentry/v1':f.fingerprint}}))}]};
   const url = URL.createObjectURL(new Blob([JSON.stringify(sarif,null,2)],{type:'application/sarif+json'})); const a = element('a'); a.href = url; a.download = 'sentinela-' + selected.id + '.sarif'; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
+});
+$('download-pdf').addEventListener('click',async () => {
+  if (!selected) return; const button = $('download-pdf'); button.disabled = true; button.textContent = 'CODEX GERANDO…'; notice('Gerando resumo executivo e PDF…');
+  try { await api('/api/scans/' + selected.id + '/ai-report',{method:'POST',body:'{}'}); const a=element('a'); a.href='/api/scans/' + selected.id + '/report.pdf'; a.download='null-sentry-' + selected.id + '.pdf'; a.click(); notice('Relatório executivo PDF gerado.'); await openReport(selected.id,false); }
+  catch(e){ notice(e.message); } finally { button.disabled=false; button.textContent='PDF + CODEX ↓'; }
 });
 refresh().catch(e => notice(e.message)); account();

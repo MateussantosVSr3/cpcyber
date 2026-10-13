@@ -2,7 +2,7 @@
 
 ## Resultado
 
-- 33 testes Python aprovados no container Python 3.12.
+- 37 testes Python aprovados no container Python 3.12.
 - 8 testes Node aprovados para a ponte Codex.
 - `docker compose config` e builds de API, worker e Codex concluídos.
 - API, PostgreSQL, Redis, Celery, Codex e Nginx ativos em containers.
@@ -13,7 +13,7 @@
 - Login oficial por device code conectou uma conta ChatGPT ao Codex.
 - Uma revisão real Codex retornou explicação, remediação e exemplo corrigido sem mudar o Security Gate.
 - Interface NULL//SENTRY dark validada visualmente no Chrome pela URL pública.
-- JSON, SARIF, favicon, CSS e JavaScript foram servidos com sucesso.
+- JSON, SARIF, PDF executivo com Codex, favicon, CSS e JavaScript foram servidos com sucesso.
 
 ## TLS e rede
 
@@ -26,7 +26,7 @@
 ## Limites conhecidos
 
 - A análise web é passiva: verifica transporte, headers e padrões no HTML/JavaScript retornado. Não explora, não altera o alvo e não substitui um pentest autorizado.
-- O motor SAST analisa Python; suporte completo a outras linguagens não está implementado.
+- Python usa AST/taint. JavaScript, TypeScript, Java, PHP, Go, C# e Ruby usam regras contextuais por padrões, com profundidade menor e engine identificada no achado.
 - Ausência de achados não garante ausência de vulnerabilidades.
 - A sessão Codex é única por instalação e persiste no volume `codex_auth` até logout, revogação ou remoção do volume.
 

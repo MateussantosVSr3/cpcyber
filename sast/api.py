@@ -5,7 +5,7 @@ from pathlib import PurePosixPath, Path
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -23,8 +23,9 @@ class Submission(BaseModel):
         total = 0
         for name, source in files.items():
             p = PurePosixPath(name)
-            if not name.endswith(".py") or p.is_absolute() or ".." in p.parts or "\\" in name or ":" in name or len(name) > 200:
-                raise ValueError("Envie caminhos relativos de arquivos .py.")
+            allowed = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".php", ".go", ".cs", ".rb"}
+            if p.suffix.lower() not in allowed or p.is_absolute() or ".." in p.parts or "\\" in name or ":" in name or len(name) > 200:
+                raise ValueError("Envie arquivos Python, JavaScript, TypeScript, Java, PHP, Go, C# ou Ruby.")
             size = len(source.encode("utf-8"))
             if size > 100_000:
                 raise ValueError("Limite de 100 KB por arquivo.")
@@ -178,6 +179,34 @@ def review(scan_id: str, fingerprint: str):
     finding["ai"] = result
     storage.save_result(scan_id, item["result"])
     return result
+
+
+@app.post("/api/scans/{scan_id}/ai-report")
+def ai_report(scan_id: str):
+    item = detail(scan_id)
+    findings = item["result"].get("findings", [])
+    severity_order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+    severity = max((f.get("severity", "LOW") for f in findings), key=lambda value: severity_order.get(value, 0), default="LOW")
+    context = "\n".join(f"{f['severity']} {f['rule']} {f['cwe']}: {f['title']} — {f['remediation']}" for f in findings)[:14000]
+    payload = {"rule": "EXECUTIVE-REPORT", "severity": severity, "cwe": "N/A", "title": f"Relatório executivo do projeto {item['project']}",
+        "remediation": "Priorize ações práticas e explique o risco de negócio em português.", "file": item["result"].get("target", item["project"]),
+        "line": 1, "column": 1, "confidence": "HIGH", "trace": [f"Gate {item['result'].get('gate')}; {len(findings)} achados"],
+        "engine": "report", "fingerprint": scan_id[:24], "context": context or "Nenhum achado pelas regras executadas; destaque as limitações desta conclusão."}
+    try:
+        review = ai.review(payload)
+    except Exception:
+        raise HTTPException(503, "Não foi possível gerar o relatório com Codex. Confira login e limites da conta.")
+    item["result"]["ai_report"] = {"provider": "codex", "summary": review["explanation"], "priorities": review["remediation"], "action_plan": review["corrected_code"]}
+    storage.save_result(scan_id, item["result"])
+    return item["result"]["ai_report"]
+
+
+@app.get("/api/scans/{scan_id}/report.pdf")
+def pdf_report(scan_id: str):
+    from sast.pdf_report import build_pdf
+    item = detail(scan_id)
+    stream = build_pdf(item)
+    return StreamingResponse(stream, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="null-sentry-{scan_id}.pdf"'})
 
 
 WEB = Path(__file__).resolve().parent.parent / "web"
