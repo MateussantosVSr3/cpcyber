@@ -47,3 +47,4 @@ Use `docker compose logs api worker codex` para diagnóstico. Não publique logs
 - Aceitação externa autenticada: projeto com oito linguagens vulneráveis retornou BLOCKED (oito achados); projeto seguro nas oito linguagens retornou PASSED; JavaScript inválido retornou ERROR. Os resultados identificaram Python AST e as sete gramáticas Tree-sitter.
 - Downloads PDF dos três resultados retornaram documentos válidos; CSS, JavaScript e favicon carregaram sob sessão. Logout voltou a bloquear a API com 401.
 - CI da base corrigida aprovado: https://github.com/MateussantosVSr3/cpcyber/actions/runs/38465752860. Evidência de PR vulnerável e proteção da branch em `pipeline.md`.
+- Empacotamento via `git archive` preserva os arquivos versionados e os scripts LF. A unidade TLS invoca `/bin/sh` explicitamente para não depender do bit executável após extrações; permissões executáveis dos scripts também são versionadas.
