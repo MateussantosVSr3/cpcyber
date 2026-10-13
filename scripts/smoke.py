@@ -24,7 +24,12 @@ from sast.jobs import celery_app
 import redis
 
 assert redis.Redis.from_url(os.environ['REDIS_URL']).ping(), 'Redis indisponível'
-assert celery_app.control.ping(timeout=10), 'Nenhum worker respondeu'
+for attempt in range(15):
+    if celery_app.control.ping(timeout=2):
+        break
+    time.sleep(1)
+else:
+    raise SystemExit('Nenhum worker respondeu após aguardar a inicialização.')
 
 for source, expected in [('eval(input())', 'BLOCKED'), ('x = 1', 'PASSED')]:
     scan = request('/api/scans', {'project': 'CI smoke', 'files': {'test.py': source}})

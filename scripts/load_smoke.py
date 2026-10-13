@@ -1,5 +1,6 @@
 """Bounded queue exercise. Run inside API; deletes only its own synthetic jobs."""
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
@@ -39,7 +40,14 @@ def main():
 
     started = time.monotonic()
     try:
-        workers = celery_app.control.ping(timeout=5)
+        expected_workers = int(os.getenv('LOAD_EXPECT_WORKERS', '1'))
+        for _ in range(20):
+            workers = celery_app.control.ping(timeout=2)
+            if len(workers) >= expected_workers:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError(f'Esperados {expected_workers} workers, responderam {len(workers)}')
         with ThreadPoolExecutor(max_workers=4) as pool:
             times = sorted(pool.map(submit, range(12)))
         report = {'requests': len(times), 'concurrent_clients': 4, 'workers_online': len(workers),
