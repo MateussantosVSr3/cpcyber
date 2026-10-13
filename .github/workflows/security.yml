@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: '22'
       - run: pip install -r requirements.txt
+      - name: Preparar configuração isolada do CI
+        run: python scripts/init_env.py
       - name: Testes funcionais e de precisão
         run: python -m unittest discover -s tests -v
       - name: Contrato da integração Codex
@@ -34,7 +36,6 @@ jobs:
         run: bandit -r sast scripts --severity-level high -f json -o reports/bandit.json
       - name: Validar infraestrutura
         run: |
-          python scripts/init_env.py
           docker compose config --quiet
           docker compose build api worker
       - name: Smoke test com PostgreSQL e Celery
@@ -42,10 +43,10 @@ jobs:
           docker compose up -d --wait api worker
           docker compose exec -T api python < scripts/smoke.py
       - name: Diagnóstico em caso de falha
-        if: failure()
+        if: failure() && hashFiles('.env') != ''
         run: docker compose logs --no-color --tail 100 api worker postgres redis
       - name: Encerrar containers
-        if: always()
+        if: always() && hashFiles('.env') != ''
         run: docker compose down
       - name: Guardar relatórios
         if: always()

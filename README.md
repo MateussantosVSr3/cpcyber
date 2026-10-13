@@ -101,7 +101,7 @@ A classificação é contextual e conservadora: MD5 pode ter uso não criptográ
 
 ## Situação da validação
 
-O deploy de produção foi validado em Ubuntu com Docker Compose: 45 testes passaram (37 Python + 8 Node), PostgreSQL, Redis e Celery processaram análises reais, e os gates vulnerável/seguro retornaram BLOCKED/PASSED. Uma URL pública também foi inspecionada de ponta a ponta pelo worker, com achados web persistidos e disponíveis para relatório JSON/SARIF/PDF. HTTPS público com certificado confiável, redirecionamento HTTP e renovação automática foram exercitados. A interface NULL//SENTRY, totalmente dark e inspirada em terminais de segurança, foi validada visualmente no Chrome pela URL pública.
+O deploy de produção foi validado em Ubuntu com Docker Compose: 57 testes passaram (49 Python + 8 Node), PostgreSQL, Redis e Celery processaram análises reais, e os gates vulnerável/seguro retornaram BLOCKED/PASSED. O login protege dashboard, APIs e relatórios. Uma URL pública também foi inspecionada de ponta a ponta pelo worker, com achados web persistidos e disponíveis para relatório JSON/SARIF/PDF. HTTPS público com certificado confiável, redirecionamento HTTP e renovação automática foram exercitados. A interface dark foi validada no Chrome em desktop e celular. O teste limitado de replicação confirmou dois workers e 12/12 análises corretas; a VPS opera normalmente com um worker para poupar RAM.
 
 As dependências diretas Python estão fixadas; transitivas e imagens ainda podem receber lock/digests para maior reprodutibilidade. O CLI Codex foi validado e fixado em `CODEX_VERSION=0.162.1` no ambiente de produção. O login oficial por device code, a conexão de uma conta ChatGPT e uma revisão real de achado foram concluídos com sucesso.
 

@@ -5,4 +5,4 @@ After=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/sentinela-sast/deploy/renew-tls.sh
+ExecStart=/bin/sh /opt/sentinela-sast/deploy/renew-tls.sh
